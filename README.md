@@ -94,13 +94,8 @@ IoT Weather Risk Monitor is a real-time weather monitoring system designed to tr
        or  
        yarn install
 
-3. **Configure Environment Variables:**
 
-   Create a `.env` file in the `frontend` directory with the following content:
-
-       REACT_APP_API_URL=http://localhost:8080/api
-
-4. **Start the Frontend Server:**
+3. **Start the Frontend Server:**
 
        npm start  
        or  
