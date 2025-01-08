@@ -162,11 +162,11 @@ IoT Weather Risk Monitor is a real-time weather monitoring system designed to tr
 
 ### Dashboard
 
-![Dashboard Screenshot](https://link-to-your-screenshot.com/dashboard.png)
+![Dashboard Screenshot](./src/screenshots/dashboard.png)
 
 ### Interactive Map
 
-![Interactive Map Screenshot](https://link-to-your-screenshot.com/interactive-map.png)
+![Interactive Map Screenshot](./src/screenshots/map.png)
 
 
 ---
