@@ -1,0 +1,18 @@
+
+.warning-group {
+    margin-bottom: 2rem;
+    padding: 1rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+  }
+  
+  .affected-areas {
+    margin-top: 1rem;
+  }
+  
+  .pagination {
+    margin-top: 2rem;
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+  }
