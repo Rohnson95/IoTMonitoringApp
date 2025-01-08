@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/Rohnson95/weathermonitoring/backend/models"
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/joho/godotenv"
 	"github.com/rs/cors"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/postgres"
@@ -24,7 +26,7 @@ import (
 
 
 
-var jwtKey = []byte("my_secret")
+var jwtKey []byte
 
 // Struct for SensorRequests
 type SensorRequest struct {
@@ -727,80 +729,84 @@ func weatherWarningHandler(w http.ResponseWriter, r *http.Request) {
     }
 }
 
-// func periodicWeatherUpdate() {
-//     ticker := time.NewTicker(15 * time.Minute)
-//     defer ticker.Stop()
-
-//     for {
-//         select {
-//         case <-ticker.C:
-//             warnings, err := fetchWeatherWarnings()
-//             if err != nil {
-//                 log.Printf("Error fetching weather warnings: %v", err)
-//                 continue
-//             }
-
-//             warningsMutex.Lock()
-//             cachedWarnings = warnings
-//             warningsMutex.Unlock()
-
-//             log.Printf("Fetched and cached %d warnings", len(warnings))
-//         }
-//     }
-// }
-
 
 func main() {
-    dsn := "host=localhost user=weather_user password=weatherpw dbname=weather_iot port=5433 sslmode=disable"
+   // Load environment variables from .env file
+	err := godotenv.Load()
+	if err != nil {
+		log.Println("No .env file found. Proceeding with environment variables.")
+	}
 
-    var err error
-    db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
-    if err != nil {
-        log.Fatalf("Failed to connect to DataBase: %v", err)
-    }
+	// Retrieve environment variables
+	dbHost := os.Getenv("DB_HOST")
+	dbUser := os.Getenv("DB_USER")
+	dbPassword := os.Getenv("DB_PASSWORD")
+	dbName := os.Getenv("DB_NAME")
+	dbPort := os.Getenv("DB_PORT")
+	jwtSecret := os.Getenv("JWT_SECRET")
+	smhiAPIURL := os.Getenv("SMHI_API_URL")
+	serverPort := os.Getenv("SERVER_PORT")
+	frontendURL := os.Getenv("FRONTEND_URL")
 
-    // Migrate alla modeller
-    err = db.AutoMigrate(&models.User{}, &models.Company{}, &models.Webhook{}, &models.Sensor{})
-    if err != nil {
-        log.Fatalf("Failed to migrate DataBase: %v", err)
-    }
+	// Validate essential environment variables
+	if dbHost == "" || dbUser == "" || dbPassword == "" || dbName == "" || dbPort == "" || jwtSecret == "" || smhiAPIURL == "" || serverPort == "" || frontendURL == "" {
+		log.Fatal("One or more required environment variables are missing.")
+	}
 
-    mux := http.NewServeMux()
+	// Initialize JWT key
+	jwtKey = []byte(jwtSecret)
 
-    // Initial fetch av vädervarningar
-    warnings, err := fetchWeatherWarnings()
-    if err != nil {
-        log.Fatalf("Error fetching initial weather warnings: %v", err)
-    }
+	// Create Data Source Name (DSN) for PostgreSQL
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable", dbHost, dbUser, dbPassword, dbName, dbPort)
 
-    warningsMutex.Lock()
-    cachedWarnings = warnings
-    warningsMutex.Unlock()
+	// Connect to the database
+	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		log.Fatalf("Failed to connect to DataBase: %v", err)
+	}
 
-    log.Printf("Initial fetch: cached %d warnings", len(warnings))
+	// Migrate all models
+	err = db.AutoMigrate(&models.User{}, &models.Company{}, &models.Webhook{}, &models.Sensor{})
+	if err != nil {
+		log.Fatalf("Failed to migrate DataBase: %v", err)
+	}
 
-    // Starta periodisk uppdatering
-    go periodicWeatherUpdate()
+	mux := http.NewServeMux()
 
-    // Registrera alla dina routes utan CORS (hanteras globalt)
-    mux.HandleFunc("/api/register", RegisterHandler)
-    mux.HandleFunc("/api/login", LoginHandler)
-    mux.HandleFunc("/api/weather-warnings", weatherWarningHandler)
-    mux.HandleFunc("/api/sensors", Authenticate(SensorHandler))
-    mux.HandleFunc("/api/webhooks", Authenticate(WebhookHandler))
+	// Initial fetch of weather warnings
+	warnings, err := fetchWeatherWarnings()
+	if err != nil {
+		log.Fatalf("Error fetching initial weather warnings: %v", err)
+	}
 
-    // Konfigurera CORS med rs/cors
-    c := cors.New(cors.Options{
-        AllowedOrigins:   []string{"http://localhost:5173"}, // Din frontend URL
-        AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-        AllowedHeaders:   []string{"Content-Type", "Authorization"},
-        AllowCredentials: true,
-    })
+	warningsMutex.Lock()
+	cachedWarnings = warnings
+	warningsMutex.Unlock()
 
-    handler := c.Handler(mux)
+	log.Printf("Initial fetch: cached %d warnings", len(warnings))
 
-    fmt.Println("Starting server on :8080")
-    if err := http.ListenAndServe(":8080", handler); err != nil {
-        log.Fatal(err)
+	// Start periodic updates
+	go periodicWeatherUpdate()
+
+	// Register all your routes without CORS (handled globally)
+	mux.HandleFunc("/api/register", RegisterHandler)
+	mux.HandleFunc("/api/login", LoginHandler)
+	mux.HandleFunc("/api/weather-warnings", weatherWarningHandler)
+	mux.HandleFunc("/api/sensors", Authenticate(SensorHandler))
+	mux.HandleFunc("/api/webhooks", Authenticate(WebhookHandler))
+
+	// Configure CORS with rs/cors
+	c := cors.New(cors.Options{
+		AllowedOrigins:   []string{frontendURL}, // Your frontend URL from .env
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Content-Type", "Authorization"},
+		AllowCredentials: true,
+	})
+
+	handler := c.Handler(mux)
+
+	fmt.Printf("Starting server on :%s\n", serverPort)
+	if err := http.ListenAndServe(":"+serverPort, handler); err != nil {
+		log.Fatal(err)
     }
 }
