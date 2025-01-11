@@ -135,15 +135,10 @@ IoT Weather Risk Monitor is a real-time weather monitoring system designed to tr
     │   ├── main.go  
     │   ├── models/  
     │   │   └── models.go  
-    │   ├── handlers/  
-    │   │   └── handlers.go  
-    │   ├── utils/  
-    │   │   └── utils.go  
     │   └── .env  
     ├── frontend/  
     │   ├── src/  
     │   │   ├── components/  
-    │   │   ├── context/  
     │   │   ├── utils/  
     │   │   └── App.tsx  
     │   ├── public/  
